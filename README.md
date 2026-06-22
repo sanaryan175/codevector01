@@ -12,7 +12,7 @@ A backend API for browsing ~200,000 products with fast, consistent pagination.
 | Framework| Express             | Minimal, widely understood, no magic |
 | Database | MongoDB (Atlas)     | MERN stack requirement; compound indexes suit this query pattern |
 | ODM      | Mongoose            | Schema validation + index management in one place |
-| Hosting  | Railway (API) + MongoDB Atlas (DB) | Both have free tiers sufficient for this project |
+| Hosting  | Render (API) + MongoDB Atlas (DB) | Render has a genuinely free tier (no credit card); Atlas free tier is 512MB |
 
 ---
 
@@ -203,27 +203,79 @@ We cap at 1,000 per batch to stay well under MongoDB's 16MB BSON operation limit
 
 ---
 
-## Deployment (Railway + MongoDB Atlas)
+## Deployment (Render + MongoDB Atlas)
 
-### MongoDB Atlas (free tier)
+### Step 1 — MongoDB Atlas (free tier)
 1. Create account at [mongodb.com/atlas](https://www.mongodb.com/atlas)
 2. Create a free M0 cluster (512MB, sufficient for this project)
-3. Create a database user and whitelist `0.0.0.0/0`
-4. Copy the connection string: `mongodb+srv://user:pass@cluster.mongodb.net/productsdb`
+3. Create a database user under **Database Access**
+4. Under **Network Access** → Add IP Address → **Allow Access from Anywhere** (`0.0.0.0/0`)
+   - This is required because Render free tier uses dynamic IPs
+5. Copy the connection string: `mongodb+srv://user:pass@cluster.mongodb.net/productsdb`
 
-### Railway (free tier)
-1. Push code to a GitHub repo
-2. Create account at [railway.app](https://railway.app)
-3. New Project → Deploy from GitHub repo → select `backend/` as root
-4. Add environment variable: `MONGODB_URI=<your Atlas connection string>`
-5. Railway auto-detects Node.js and deploys
-
-### Run seed on Atlas
+### Step 2 — Seed the database
+Run this once from your local machine, pointing at Atlas:
 ```bash
-# Set your Atlas URI in .env, then:
+# Make sure your .env has the Atlas MONGODB_URI, then:
+cd backend
 npm run seed
 ```
-Seed runs from your local machine against the remote Atlas database.
+The seed runs locally but inserts into your remote Atlas cluster.
+
+### Step 3 — Push code to GitHub
+```bash
+cd ..  # project root
+git add .
+git commit -m "initial commit"
+git branch -M main
+git push -u origin main
+```
+Verify on GitHub that `.env` is **not** committed — only `.env.example` should be there.
+
+### Step 4 — Deploy on Render (free tier)
+1. Create account at [render.com](https://render.com) — sign up with GitHub
+2. Dashboard → **New → Web Service**
+3. Select your GitHub repo
+4. Configure:
+
+| Field | Value |
+|---|---|
+| **Root Directory** | `backend` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `node src/app.js` |
+| **Instance Type** | `Free` |
+
+5. Scroll to **Environment Variables** and add:
+
+| Key | Value |
+|---|---|
+| `MONGODB_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/productsdb` |
+| `NODE_ENV` | `production` |
+| `PORT` | `3000` |
+
+6. Click **Create Web Service** — Render builds and deploys automatically
+
+A successful deploy log ends with:
+```
+MongoDB connected: ac-xxx.mongodb.net
+Server running on port 3000
+==> Your service is live 🎉
+```
+
+Your live URL will be: `https://your-service-name.onrender.com`
+
+### Step 5 — Verify live API
+```
+GET https://your-service-name.onrender.com/health
+GET https://your-service-name.onrender.com/products?limit=5
+GET https://your-service-name.onrender.com/products?limit=5&category=electronics
+```
+
+### Note on Render free tier cold starts
+Free services spin down after 15 minutes of inactivity. The first request after that takes ~30 seconds to wake up. Open the URL yourself before any demo to warm it up — subsequent requests will be fast.
+
+To keep it warm automatically, set up a free monitor at [uptimerobot.com](https://uptimerobot.com) to ping `/health` every 14 minutes.
 
 ---
 
