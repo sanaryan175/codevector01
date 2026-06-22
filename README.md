@@ -295,14 +295,4 @@ To keep it warm automatically, set up a free monitor at [uptimerobot.com](https:
 
 ---
 
-## How AI Helped and What I Verified
 
-AI (Kiro) generated the initial structure, cursor encoding logic, and index definitions.
-
-**What I verified and understood:**
-
-- The `$or` condition in the keyset query — I traced through it manually with sample data to confirm it handles the tiebreaker case correctly
-- Index field order — confirmed that `{ category, created_at, _id }` vs `{ created_at, category, _id }` produces different query plans; order matters
-- The `lean()` call in the query — confirmed it returns plain JS objects and is meaningfully faster for read-only queries
-- `ordered: false` in `insertMany` — confirmed it means MongoDB doesn't stop on a validation error, it skips and continues; appropriate here because seed data is synthetic
-- Price in cents — verified that JavaScript float arithmetic is lossy and that integer cent storage is the correct approach for financial data
